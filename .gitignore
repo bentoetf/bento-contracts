@@ -1,0 +1,43 @@
+# Foundry build/runtime artifacts
+/out/
+/cache/
+/broadcast/
+/coverage/
+/lcov.info
+*.gas-snapshot.tmp
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.secret
+secrets.*
+
+# Static-analysis/generated local artifacts
+slither-report.json
+slither-output.txt
+aderyn-report.*
+crytic-export/
+
+# Temporary discovery artifacts
+/tmp_blockscout/
+/tmp_*.json
+/tmp_*.sol
+/tmp_*.txt
+/*.log
+/*.zip
+
+# Package managers / dependencies
+node_modules/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
