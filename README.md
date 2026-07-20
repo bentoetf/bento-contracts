@@ -55,7 +55,9 @@ Notes:
 
 ## Security posture
 
-This is a release candidate, not audited production software.
+**UNAUDITED.** This is a release candidate, not audited production software.
+
+Protocol fees are intended to fund an independent security audit as a priority. Launch caps (`15 ETH` TVL, `2 ETH` per tx) will not be raised until an independent audit has been completed and published.
 
 Controls and guardrails included:
 
