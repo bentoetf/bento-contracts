@@ -110,3 +110,13 @@ doing its job). Options:
   delay), so announce-then-ship.
 Re-probe pools with `forge test --match-contract AIPoolProbeForkTest -vv`
 before deciding.
+
+### AI3 launch calldata (approved: NVDA/AMD/MU equal weight)
+After core deploy, generate the 4 timelock ops with live addresses:
+```
+ADAPTER_ADDRESS=<adapter> forge script script/AI3Calldata.s.sol
+```
+Writes out/ai3-01..03 (target = adapter, setUSDGRoute) and out/ai3-04
+(target = engine, createBox "AI Bento Box"/AI3, 30/30 bps fees, 15 ETH TVL
+cap). Schedule + execute in order through the timelock (24h delay applies).
+Then set the AI3 per-tx mint cap the same way as MAG7 if desired.
