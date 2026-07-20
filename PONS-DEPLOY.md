@@ -54,3 +54,21 @@ aligned. Fees accumulate in the collector until then; nothing is lost.
 Fork test: `forge test --match-contract PonsDeployForkTest` (uses a real
 pons-factory token as the BENTO stand-in; asserts bootstrap, delay raise,
 post-raise ops require 24h, and a mint/redeem smoke under 300 bps).
+
+## Post-deploy: USDG zapper (optional, non-blocking)
+
+After the core is live, deploy `src/periphery/USDGZapper.sol` so users can mint
+boxes directly from USDG (6 decimals) without holding ETH:
+
+```bash
+forge create src/periphery/USDGZapper.sol:USDGZapper --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" \
+  --broadcast --verify --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/ \
+  --constructor-args 0x8876789976dEcBfCbBbe364623C63652db8C0904 0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+  $BOX_ENGINE_ADDRESS 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168 460 9
+```
+
+Standalone and immutable: no admin, no owner, no timelock ops. Swaps USDG to
+ETH through the V4 ETH/USDG 460/9 pool and calls `engine.mint` in one tx.
+Fork test: `forge test --match-contract USDGZapperForkTest` (100 USDG in,
+~0.9933 MAG7 out, ~67 bps all-in). Frontend gets NEXT_PUBLIC_USDG_ZAPPER_ADDRESS
+once deployed.
