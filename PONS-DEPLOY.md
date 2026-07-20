@@ -72,3 +72,41 @@ ETH through the V4 ETH/USDG 460/9 pool and calls `engine.mint` in one tx.
 Fork test: `forge test --match-contract USDGZapperForkTest` (100 USDG in,
 ~0.9933 MAG7 out, ~67 bps all-in). Frontend gets NEXT_PUBLIC_USDG_ZAPPER_ADDRESS
 once deployed.
+
+## Post-launch playbook (week 1-3)
+
+### Sushi V2 BENTO/WETH bridge pool (enables burns)
+Seed once, any time after launch: BENTO + ETH at the live pons pool price
+(0.05-0.1 ETH side is enough; buyback flow is a trickle and arb keeps price
+aligned). Compute exact amounts from the pons pool at seeding time.
+
+### MAG7/USDG spot pool (one-click buy + chart)
+Optional marketing pool: LP MAG7 against USDG on any DEX. Mint/redeem arb pins
+pool price to NAV (above NAV: mint ~60bps and sell; below: buy and redeem), so
+IL is low relative to volatile pairs. Small seed (~$500-1k each side) is fine.
+
+### BoxNavOracle + Morpho market (boxes as collateral)
+`src/periphery/BoxNavOracle.sol` is a Chainlink AggregatorV3-compatible feed
+reporting box NAV in USD (8 decimals), computed live from the engine. Deploy
+with `--constructor-args $BOX_ENGINE_ADDRESS 1` (boxId). Reverts when any
+component feed is stale (safe failure mode for lending). Fork test:
+`forge test --match-contract BoxNavOracleForkTest`.
+
+Arrow Finance runs a Morpho deployment on Robinhood chain (0 markets as of
+2026-07-20). Morpho market creation is permissionless: collateral MAG7, loan
+USDG, oracle BoxNavOracle, conservative LLTV (62.5% suggested for a basket of
+equities). Do not promote borrowing size pre-audit.
+
+### AI box (box #2) — liquidity reality check (probed 2026-07-20)
+Feeds exist for all AI names (NVDA, AMD, TSM, MU, PLTR, ORCL, CRWV, all live
+and fresh). Pools are the constraint: only NVDA (USDG fee=3000), AMD and MU
+(USDG fee=10000) have functional V4 USDG liquidity. TSM/PLTR/ORCL/CRWV pools
+are dust or mispriced vs feed (SanityDeviation reverts, which is the engine
+doing its job). Options:
+- Ship "AI3" now: NVDA/AMD/MU equal-weight, works today (fork test
+  `AIBoxForkTest`: mint+redeem round trip ~220bps at 0.02 ETH size).
+- Wait for depth on the other names and ship AI7 later.
+- Route additions and createBox go through the timelock post-launch (24h
+  delay), so announce-then-ship.
+Re-probe pools with `forge test --match-contract AIPoolProbeForkTest -vv`
+before deciding.
