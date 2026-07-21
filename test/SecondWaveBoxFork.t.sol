@@ -8,11 +8,13 @@ import {BoxRegistry} from "../src/BoxRegistry.sol";
 import {FeeCollector} from "../src/FeeCollector.sol";
 import {UniswapV4Adapter} from "../src/adapters/UniswapV4Adapter.sol";
 
-/// @notice Fork test for second-wave boxes: SPCX (solo) and SPCX+SPY 50/50.
+/// @notice Fork test for the second-wave "Elon Box": SPCX + TSLA 50/50.
+///         (Rasta 2026-07-20: no single-asset boxes yet; earlier solo
+///         SPCX/SPY shapes replaced by this combo.)
 ///         NFLX excluded: has V4 liquidity but NO Chainlink feed on Robinhood
 ///         Chain (probed 2026-07-20), so NAV/redeem pricing is impossible.
-///         Pool params from SecondWavePoolProbeFork: SPCX fee=10000/200,
-///         SPY fee=3000/60 (SPCX fee=3000 pool exists but is ~17% mispriced).
+///         Pool params: SPCX fee=10000/200 (fee=3000 pool ~17% mispriced),
+///         TSLA fee=3000/60 (standard MAG7 pool).
 contract SecondWaveBoxForkTest is Test {
     address constant WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
     address constant SUSHI_ROUTER = 0x9A55D3d0c0f09859c7869510f53eD0a30B340766;
@@ -24,16 +26,16 @@ contract SecondWaveBoxForkTest is Test {
     address constant PONS_TOKEN = 0xcDd50D73B45085D71Cb05e2ca238d12C3Bd7bEBD;
 
     address constant SPCX = 0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa;
-    address constant SPY = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C;
+    address constant TSLA = 0x322F0929c4625eD5bAd873c95208D54E1c003b2d;
     address constant SPCX_FEED = 0xB265810950ba6c5C0Ff821c9963014a56fD8Bffb;
-    address constant SPY_FEED = 0x319724394D3A0e3669269846abE664Cd621f9f6A;
+    address constant TSLA_FEED = 0x4A1166a659A55625345e9515b32adECea5547C38;
 
     TimelockController timelock;
     UniswapV4Adapter adapter;
     BoxEngine engine;
     address safe;
 
-    function testSecondWaveBoxesMintRedeem() external {
+    function testElonBoxMintRedeem() external {
         vm.createSelectFork("robinhood");
 
         address deployer = makeAddr("deployer");
@@ -64,24 +66,17 @@ contract SecondWaveBoxForkTest is Test {
         );
         _tlExec(
             address(adapter),
-            abi.encodeCall(UniswapV4Adapter.setUSDGRoute, (SPY, _ethUsdPool(), _usdgPool(SPY, 3000, 60)))
+            abi.encodeCall(UniswapV4Adapter.setUSDGRoute, (TSLA, _ethUsdPool(), _usdgPool(TSLA, 3000, 60)))
         );
 
-        // box 1: SPCX solo
-        BoxEngine.Component[] memory solo = new BoxEngine.Component[](1);
-        solo[0] = BoxEngine.Component({token: SPCX, weightBps: 10000, router: address(adapter), path: _p(SPCX), feed: SPCX_FEED});
-        _tlExec(address(engine), abi.encodeCall(BoxEngine.createBox, ("SpaceX Box", "SPCXB", solo, 30, 30, uint128(15 ether), "")));
-        _tlExec(address(engine), abi.encodeCall(BoxEngine.setPerTxMintCap, (1, uint128(2 ether))));
-
-        // box 2: SPCX + SPY 50/50 "Frontier"
+        // Elon Box: SPCX + TSLA 50/50
         BoxEngine.Component[] memory duo = new BoxEngine.Component[](2);
         duo[0] = BoxEngine.Component({token: SPCX, weightBps: 5000, router: address(adapter), path: _p(SPCX), feed: SPCX_FEED});
-        duo[1] = BoxEngine.Component({token: SPY, weightBps: 5000, router: address(adapter), path: _p(SPY), feed: SPY_FEED});
-        _tlExec(address(engine), abi.encodeCall(BoxEngine.createBox, ("Frontier Box", "FRNTR", duo, 30, 30, uint128(15 ether), "")));
-        _tlExec(address(engine), abi.encodeCall(BoxEngine.setPerTxMintCap, (2, uint128(2 ether))));
+        duo[1] = BoxEngine.Component({token: TSLA, weightBps: 5000, router: address(adapter), path: _p(TSLA), feed: TSLA_FEED});
+        _tlExec(address(engine), abi.encodeCall(BoxEngine.createBox, ("Elon Box", "ELON", duo, 30, 30, uint128(15 ether), "")));
+        _tlExec(address(engine), abi.encodeCall(BoxEngine.setPerTxMintCap, (1, uint128(2 ether))));
 
-        _roundTrip(1, 1);
-        _roundTrip(2, 2);
+        _roundTrip(1, 2);
     }
 
     function _roundTrip(uint256 boxId, uint256 nComps) internal {

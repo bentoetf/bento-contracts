@@ -5,41 +5,39 @@ import {Script} from "forge-std/Script.sol";
 import {BoxEngine} from "../src/BoxEngine.sol";
 import {UniswapV4Adapter} from "../src/adapters/UniswapV4Adapter.sol";
 
-/// @notice Generates timelock calldata for the second-wave boxes: SPCX solo
-/// and SPY solo. Run AFTER the pons core deploy, with live addresses:
+/// @notice Generates timelock calldata for the second-wave "Elon Box":
+/// SPCX + TSLA 50/50. (No single-asset boxes per Rasta 2026-07-20.)
+/// Run AFTER the pons core deploy, with live addresses:
 ///
 ///   ADAPTER_ADDRESS=0x... forge script script/SecondWaveCalldata.s.sol
 ///
 /// Writes calldata files to out/. Schedule + execute each through the
 /// timelock (24h delay applies post-bootstrap):
 ///   wave2-01 -> target = adapter (setUSDGRoute SPCX, fee=10000 tick=200)
-///   wave2-02 -> target = adapter (setUSDGRoute SPY,  fee=3000  tick=60)
-///   wave2-03 -> target = engine  (createBox "SpaceX Box" / SPCXB)
-///   wave2-04 -> target = engine  (createBox "S&P 500 Box" / SPYB)
-///   wave2-05 -> target = engine  (setPerTxMintCap for SPCXB box id)
-///   wave2-06 -> target = engine  (setPerTxMintCap for SPYB box id)
+///   wave2-02 -> target = engine  (createBox "Elon Box" / ELON)
+///   wave2-03 -> target = engine  (setPerTxMintCap for ELON box id)
 ///
-/// NOTE: box ids in 05/06 assume SPCXB=2, SPYB=3 (MAG7=1, minted in order).
-/// If AI3 ships first the ids shift; set BOX_ID_SPCX / BOX_ID_SPY env vars.
+/// TSLA route NOT included: already set by PonsDeploy (MAG7 constituent).
+/// Box id in 03 assumes ELON=2 (MAG7=1). If AI3 ships first the id shifts;
+/// override with BOX_ID_ELON env var.
 ///
 /// NFLX excluded despite $40k pool liquidity: no Chainlink feed exists on
 /// Robinhood Chain for NFLX (verified against the full EACAggregatorProxy
 /// set on-chain, 2026-07-20), so NAV/redeem pricing is impossible.
-/// Pool params from SecondWavePoolProbeFork (SPCX fee=3000 pool exists but
+/// SPCX pool params from SecondWavePoolProbeFork (fee=3000 pool exists but
 /// quotes ~17% under feed; the fee=10000 pool is the honest one).
 contract SecondWaveCalldata is Script {
     address constant NATIVE_ETH = address(0);
     address constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
 
     address constant SPCX = 0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa;
-    address constant SPY = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C;
+    address constant TSLA = 0x322F0929c4625eD5bAd873c95208D54E1c003b2d;
     address constant SPCX_FEED = 0xB265810950ba6c5C0Ff821c9963014a56fD8Bffb;
-    address constant SPY_FEED = 0x319724394D3A0e3669269846abE664Cd621f9f6A;
+    address constant TSLA_FEED = 0x4A1166a659A55625345e9515b32adECea5547C38;
 
     function run() external {
         address adapter_ = vm.envAddress("ADAPTER_ADDRESS");
-        uint256 idSpcx = vm.envOr("BOX_ID_SPCX", uint256(2));
-        uint256 idSpy = vm.envOr("BOX_ID_SPY", uint256(3));
+        uint256 idElon = vm.envOr("BOX_ID_ELON", uint256(2));
 
         vm.writeFile(
             "out/wave2-01-adapter-setUSDGRoute-SPCX.calldata.txt",
@@ -48,47 +46,30 @@ contract SecondWaveCalldata is Script {
             )
         );
         vm.writeFile(
-            "out/wave2-02-adapter-setUSDGRoute-SPY.calldata.txt",
-            vm.toString(abi.encodeCall(UniswapV4Adapter.setUSDGRoute, (SPY, _ethUsdPool(), _usdgPool(SPY, 3000, 60))))
-        );
-        vm.writeFile(
-            "out/wave2-03-engine-createBox-SPCXB.calldata.txt",
+            "out/wave2-02-engine-createBox-ELON.calldata.txt",
             vm.toString(
                 abi.encodeCall(
-                    BoxEngine.createBox,
-                    ("SpaceX Box", "SPCXB", _solo(SPCX, SPCX_FEED, adapter_), 30, 30, uint128(15 ether), "")
+                    BoxEngine.createBox, ("Elon Box", "ELON", _elonComponents(adapter_), 30, 30, uint128(15 ether), "")
                 )
             )
         );
         vm.writeFile(
-            "out/wave2-04-engine-createBox-SPYB.calldata.txt",
-            vm.toString(
-                abi.encodeCall(
-                    BoxEngine.createBox,
-                    ("S&P 500 Box", "SPYB", _solo(SPY, SPY_FEED, adapter_), 30, 30, uint128(15 ether), "")
-                )
-            )
-        );
-        vm.writeFile(
-            "out/wave2-05-engine-setPerTxMintCap-SPCXB.calldata.txt",
-            vm.toString(abi.encodeCall(BoxEngine.setPerTxMintCap, (idSpcx, uint128(2 ether))))
-        );
-        vm.writeFile(
-            "out/wave2-06-engine-setPerTxMintCap-SPYB.calldata.txt",
-            vm.toString(abi.encodeCall(BoxEngine.setPerTxMintCap, (idSpy, uint128(2 ether))))
+            "out/wave2-03-engine-setPerTxMintCap-ELON.calldata.txt",
+            vm.toString(abi.encodeCall(BoxEngine.setPerTxMintCap, (idElon, uint128(2 ether))))
         );
     }
 
-    function _solo(address token, address feed, address adapter_)
-        internal
-        pure
-        returns (BoxEngine.Component[] memory comps)
-    {
-        comps = new BoxEngine.Component[](1);
-        address[] memory p = new address[](2);
-        p[0] = USDG;
-        p[1] = token;
-        comps[0] = BoxEngine.Component({token: token, weightBps: 10000, router: adapter_, path: p, feed: feed});
+    function _elonComponents(address adapter_) internal pure returns (BoxEngine.Component[] memory comps) {
+        comps = new BoxEngine.Component[](2);
+        address[2] memory toks = [SPCX, TSLA];
+        address[2] memory feeds = [SPCX_FEED, TSLA_FEED];
+        for (uint256 i; i < 2; ++i) {
+            address[] memory p = new address[](2);
+            p[0] = USDG;
+            p[1] = toks[i];
+            comps[i] =
+                BoxEngine.Component({token: toks[i], weightBps: 5000, router: adapter_, path: p, feed: feeds[i]});
+        }
     }
 
     function _ethUsdPool() internal pure returns (UniswapV4Adapter.PoolKey memory p) {
