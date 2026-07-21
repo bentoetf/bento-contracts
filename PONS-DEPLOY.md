@@ -120,3 +120,26 @@ Writes out/ai3-01..03 (target = adapter, setUSDGRoute) and out/ai3-04
 (target = engine, createBox "AI Bento Box"/AI3, 30/30 bps fees, 15 ETH TVL
 cap). Schedule + execute in order through the timelock (24h delay applies).
 Then set the AI3 per-tx mint cap the same way as MAG7 if desired.
+
+### Elon box (SPCX + TSLA 50/50, approved 2026-07-20)
+No single-asset boxes for now (Rasta). Second-wave shape is "Elon Box"
+(ticker ELON): SPCX + TSLA equal weight. Fork test `SecondWaveBoxForkTest`
+passes on the live fork (NAV ~$99.15, mint+redeem round trip ~200bps at
+0.02 ETH). Pool params: SPCX USDG fee=10000/tick=200 (the fee=3000 SPCX pool
+quotes ~17% under feed, do not use), TSLA fee=3000/tick=60 (standard MAG7
+pool, route already set by PonsDeploy).
+
+Generate the 3 timelock ops after core deploy:
+```
+ADAPTER_ADDRESS=<adapter> forge script script/SecondWaveCalldata.s.sol
+```
+Writes out/wave2-01 (adapter setUSDGRoute SPCX), out/wave2-02 (engine
+createBox "Elon Box"/ELON, 30/30 bps, 15 ETH TVL cap), out/wave2-03 (engine
+setPerTxMintCap 2 ETH, box id defaults to 2; override BOX_ID_ELON if AI3
+ships first, then ELON is id 3 and AI3's cap op uses id 2).
+
+NFLX is excluded despite ~$40k pool liquidity: no Chainlink feed exists on
+Robinhood Chain for NFLX, so NAV and redeem pricing are impossible. A degen
+box (MSTR/COIN/HOOD) also fails today: MSTR has no pools, COIN is dust, HOOD
+tokens have no feed. `scripts/bento-liq-watch.py` (assistant workspace)
+monitors candidates daily for feed + liquidity gates.
