@@ -45,7 +45,7 @@ contract RobinhoodLiveForkReportTest is Test {
 
     function testLiveForkReportV2RoutesAndOptionalMint() public {
         if (!vm.envOr("RUN_LIVE_FORK", false)) return;
-        string memory rpc = vm.envOr("ROBINHOOD_RPC_URL", string("https://robinhoodchain.blockscout.com/api/eth-rpc"));
+        string memory rpc = vm.envOr("ROBINHOOD_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com"));
         vm.createSelectFork(rpc);
         assertEq(block.chainid, 4663);
 

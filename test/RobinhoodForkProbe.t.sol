@@ -11,7 +11,7 @@ contract RobinhoodForkProbeTest is Test {
     function testOptionalRobinhoodForkReadsStockAndRouter() public {
         bool run = vm.envOr("RUN_LIVE_FORK", false);
         if (!run) return;
-        vm.createSelectFork(vm.envString("ROBINHOOD_RPC_URL"));
+        vm.createSelectFork(vm.envOr("ROBINHOOD_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com")));
         assertEq(block.chainid, 4663);
         assertGt(NVDA.code.length, 0, "NVDA code missing");
         assertGt(SUSHI_ROUTER.code.length, 0, "Sushi router code missing");
